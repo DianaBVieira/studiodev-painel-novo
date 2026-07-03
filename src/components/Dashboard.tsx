@@ -7,8 +7,15 @@ import {
   LayoutDashboard,
   Link as LinkIcon,
   FileText,
-  Download
+  Download,
+  Plus,
+  Trash2
 } from 'lucide-react';
+
+interface LinkDinamico {
+  label: string;
+  url: string;
+}
 
 interface Projeto {
   id: string;
@@ -18,7 +25,7 @@ interface Projeto {
   status: string;
   dataLimite: string;
   prioridade: string;
-  linkProjeto?: string;
+  links: LinkDinamico[];
   linkPRD?: string;
 }
 
@@ -41,7 +48,10 @@ export default function Dashboard() {
       status: 'briefing',
       dataLimite: '2026-07-20',
       prioridade: 'Alta',
-      linkProjeto: 'https://github.com',
+      links: [
+        { label: 'GitHub', url: 'https://github.com' },
+        { label: 'Figma', url: 'https://figma.com' }
+      ],
       linkPRD: '#'
     }
   ]);
@@ -55,17 +65,24 @@ export default function Dashboard() {
     }
   ]);
 
+  // Estados do Formulário de Projetos
   const [nomeProj, setNomeProj] = useState('');
   const [clienteProj, setClienteProj] = useState('');
   const [descProj, setDescProj] = useState('');
   const [dataProj, setDataProj] = useState('');
-  const [linkProjInput, setLinkProjInput] = useState('');
   const [linkPRDInput, setLinkPRDInput] = useState('');
   
+  // Lista temporária de links que o usuário adiciona antes de salvar o projeto
+  const [linksTemporarios, setLinksTemporarios] = useState<LinkDinamico[]>([]);
+  const [labelLinkAtual, setLabelLinkAtual] = useState('');
+  const [urlLinkAtual, setUrlLinkAtual] = useState('');
+
+  // Estados do Formulário de Clientes
   const [nomeCli, setNomeCli] = useState('');
   const [whatsCli, setWhatsCli] = useState('');
   const [valorCli, setValorCli] = useState('');
 
+  // Navegação
   const [abaAtiva, setAbaAtiva] = useState('dashboard'); // dashboard, projetos, crm
   const [sidebarAberta, setSidebarAberta] = useState(true);
 
@@ -75,6 +92,19 @@ export default function Dashboard() {
     desenvolvimento: { titulo: 'Em Desenvolvimento / Feito', cor: '#00DFD8', border: 'border-cyan-500', glow: 'shadow-[0_0_15px_rgba(0,223,216,0.15)]' },
     homologacao: { titulo: 'Aguardando Revisão / Testes', cor: '#FF4081', border: 'border-pink-500', glow: 'shadow-[0_0_15px_rgba(255,64,129,0.15)]' },
     lancamento: { titulo: 'Lançamento / Concluído', cor: '#00E676', border: 'border-green-500', glow: 'shadow-[0_0_15px_rgba(0,230,118,0.15)]' }
+  };
+
+  // Adiciona link à lista temporária do formulário
+  const adicionarLinkTemporario = () => {
+    if (!labelLinkAtual || !urlLinkAtual) return;
+    setLinksTemporarios([...linksTemporarios, { label: labelLinkAtual, url: urlLinkAtual }]);
+    setLabelLinkAtual('');
+    setUrlLinkAtual('');
+  };
+
+  // Remove link da lista temporária
+  const removerLinkTemporario = (index: number) => {
+    setLinksTemporarios(linksTemporarios.filter((_, i) => i !== index));
   };
 
   const adicionarProjeto = (e: React.FormEvent) => {
@@ -88,7 +118,7 @@ export default function Dashboard() {
       status: 'briefing',
       dataLimite: dataProj,
       prioridade: 'Média',
-      linkProjeto: linkProjInput || undefined,
+      links: linksTemporarios,
       linkPRD: linkPRDInput || undefined
     };
     setProjetos([...projetos, proj]);
@@ -96,8 +126,8 @@ export default function Dashboard() {
     setClienteProj('');
     setDescProj('');
     setDataProj('');
-    setLinkProjInput('');
     setLinkPRDInput('');
+    setLinksTemporarios([]);
   };
 
   const adicionarCliente = (e: React.FormEvent) => {
@@ -117,6 +147,15 @@ export default function Dashboard() {
 
   const moverProjeto = (id: string, novoStatus: string) => {
     setProjetos(projetos.map(p => p.id === id ? { ...p, status: novoStatus } : p));
+  };
+
+  const deletarLinkDoProjetoSalvo = (projetoId: string, linkIndex: number) => {
+    setProjetos(projetos.map(p => {
+      if (p.id === projetoId) {
+        return { ...p, links: p.links.filter((_, i) => i !== linkIndex) };
+      }
+      return p;
+    }));
   };
 
   return (
@@ -188,7 +227,7 @@ export default function Dashboard() {
 
         <div className="p-8 flex-1 overflow-y-auto space-y-8">
           
-          {/* CARD METRICAS PRINCIPAIS */}
+          {/* CARDS DE MÉTRICAS */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
             <div className="bg-[#151D30] border border-slate-800 p-5 rounded-2xl flex items-center gap-4">
               <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl"><Folder size={24} /></div>
@@ -235,7 +274,7 @@ export default function Dashboard() {
                   return (
                     <div 
                       key={chave} 
-                      className={`bg-[#111827] rounded-2xl border border-slate-800/60 p-4 w-[290px] shrink-0 transition-all duration-300 ${config.glow}`}
+                      className={`bg-[#111827] rounded-2xl border border-slate-800/60 p-4 w-[295px] shrink-0 transition-all duration-300 ${config.glow}`}
                     >
                       <div 
                         className="p-3 rounded-xl mb-4 font-bold text-xs text-white uppercase text-center shadow-inner tracking-wider"
@@ -249,21 +288,38 @@ export default function Dashboard() {
                           <div key={p.id} className={`bg-[#151D30] border-l-4 ${config.border} p-4 rounded-xl space-y-3 shadow-md hover:scale-[1.02] transition-transform`}>
                             <h4 className="font-bold text-sm text-white leading-tight">{p.nome}</h4>
                             <p className="text-xs text-indigo-400 font-medium">👤 {p.cliente}</p>
-                            <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">{p.descricao}</p>
+                            <p className="text-xs text-slate-400 leading-relaxed">{p.descricao}</p>
                             
-                            {/* LINKS INTERNOS DOS CARDS REATIVADOS */}
-                            {(p.linkProjeto || p.linkPRD) && (
-                              <div className="flex flex-wrap gap-2 pt-1">
-                                {p.linkProjeto && (
-                                  <a href={p.linkProjeto} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded text-indigo-400 font-medium transition-colors">
-                                    <LinkIcon size={12} /> Projeto
-                                  </a>
-                                )}
-                                {p.linkPRD && (
-                                  <a href={p.linkPRD} download className="flex items-center gap-1 text-[11px] bg-indigo-950/40 hover:bg-indigo-900/40 px-2 py-1 rounded text-emerald-400 font-medium transition-colors border border-emerald-500/20">
-                                    <Download size={12} /> Baixar PRD (PDF)
-                                  </a>
-                                )}
+                            {/* LINKS MULTIPLOS DINÂMICOS RESTAURADOS NO CARD */}
+                            {p.links && p.links.length > 0 && (
+                              <div className="space-y-1.5 pt-1">
+                                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ambientes e Links:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {p.links.map((link, idx) => (
+                                    <div key={idx} className="flex items-center gap-1 bg-slate-800/90 hover:bg-slate-700/90 px-2 py-1 rounded text-[11px] transition-colors text-indigo-400 font-medium group">
+                                      <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1">
+                                        <LinkIcon size={11} /> {link.label}
+                                      </a>
+                                      <button 
+                                        type="button"
+                                        onClick={() => deletarLinkDoProjetoSalvo(p.id, idx)}
+                                        className="text-slate-500 hover:text-red-400 ml-1 transition-colors pl-0.5"
+                                        title="Remover Link"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* DOCUMENTO PRD */}
+                            {p.linkPRD && (
+                              <div className="pt-1">
+                                <a href={p.linkPRD} download className="flex items-center justify-center gap-1.5 text-[11px] w-full bg-indigo-950/40 hover:bg-indigo-900/40 py-1.5 rounded text-emerald-400 font-semibold transition-colors border border-emerald-500/20">
+                                  <Download size={12} /> Baixar PRD (PDF)
+                                </a>
                               </div>
                             )}
 
@@ -282,7 +338,7 @@ export default function Dashboard() {
                               <select
                                 value={p.status}
                                 onChange={(e) => moverProjeto(p.id, e.target.value)}
-                                className="bg-[#0B0F19] text-slate-300 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] focus:outline-none focus:border-indigo-500"
+                                className="bg-[#0B0F19] text-slate-300 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] focus:outline-none"
                               >
                                 <option value="briefing">Briefing</option>
                                 <option value="ui_ux">UI/UX</option>
@@ -306,17 +362,18 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* ABA 2: PROJETOS ISOLADA (FORMULÁRIO + TABELA) */}
+          {/* ABA 2: PROJETOS ISOLADA (FORMULÁRIO COM SELETOR DE LINKS + TABELA) */}
           {abaAtiva === 'projetos' && (
             <div className="space-y-6">
-              <form onSubmit={adicionarProjeto} className="bg-[#151D30] border border-slate-800 p-6 rounded-2xl space-y-4">
+              <form onSubmit={adicionarProjeto} className="bg-[#151D30] border border-slate-800 p-6 rounded-2xl space-y-4 shadow-xl">
                 <h3 className="text-base font-bold text-white mb-2">Cadastrar Novo Projeto</h3>
+                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-slate-400 font-medium px-1">Nome do Projeto</label>
                     <input 
                       type="text" 
-                      placeholder="Nome do Projeto" 
+                      placeholder="Ex: StudioDev Workspace" 
                       value={nomeProj}
                       onChange={e => setNomeProj(e.target.value)}
                       className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-full"
@@ -344,42 +401,74 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-slate-400 font-medium px-1">Link do Projeto / Repositório</label>
-                    <input 
-                      type="url" 
-                      placeholder="https://github.com/usuario/projeto" 
-                      value={linkProjInput}
-                      onChange={e => setLinkProjInput(e.target.value)}
-                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs text-slate-400 font-medium px-1">Link do Documento PRD (PDF)</label>
+                {/* PAINEL DINÂMICO PARA ADICIONAR VÁRIOS LINKS IGUAL ANTES */}
+                <div className="bg-[#0B0F19]/50 border border-slate-800 p-4 rounded-xl space-y-3">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Gerenciador de Ambientes e Links</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                     <input 
                       type="text" 
-                      placeholder="Cole o link do PDF ou documento escopo" 
-                      value={linkPRDInput}
-                      onChange={e => setLinkPRDInput(e.target.value)}
-                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-full"
+                      placeholder="Nome do link (Ex: Figma, GitHub, Vercel)" 
+                      value={labelLinkAtual}
+                      onChange={e => setLabelLinkAtual(e.target.value)}
+                      className="bg-[#0B0F19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
                     />
+                    <input 
+                      type="url" 
+                      placeholder="https://link-da-ferramenta.com" 
+                      value={urlLinkAtual}
+                      onChange={e => setUrlLinkAtual(e.target.value)}
+                      className="bg-[#0B0F19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={adicionarLinkTemporario}
+                      className="bg-slate-800 text-indigo-400 border border-slate-700 font-semibold rounded-lg h-[34px] text-xs flex items-center justify-center gap-1 hover:bg-slate-700 transition-colors"
+                    >
+                      <Plus size={14} /> Incluir Link
+                    </button>
                   </div>
+
+                  {/* Visualização e opção de deletar os links incluídos */}
+                  {linksTemporarios.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800/80">
+                      {linksTemporarios.map((link, idx) => (
+                        <span key={idx} className="flex items-center gap-2 bg-slate-800 px-2.5 py-1 rounded text-xs text-indigo-300">
+                          <strong>{link.label}:</strong> {link.url}
+                          <button type="button" onClick={() => removerLinkTemporario(idx)} className="text-red-400 hover:text-red-300 ml-1">
+                            <Trash2 size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
                   <div className="md:col-span-2 flex flex-col gap-1">
+                    <label className="text-xs text-slate-400 font-medium px-1">Link do Documento PRD (PDF)</label>
+                    <input 
+                      type="text" 
+                      placeholder="Cole a URL ou link para baixar o arquivo PDF do escopo" 
+                      value={linkPRDInput}
+                      onChange={e => setLinkPRDInput(e.target.value)}
+                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
                     <label className="text-xs text-slate-400 font-medium px-1">Descrição do Escopo</label>
                     <input 
                       type="text" 
-                      placeholder="Descreva brevemente o que será entregue..." 
+                      placeholder="Escopo resumido do projeto..." 
                       value={descProj}
                       onChange={e => setDescProj(e.target.value)}
-                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 w-full"
+                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none w-full"
                     />
                   </div>
-                  <button type="submit" className="bg-indigo-600 text-white rounded-xl h-[42px] text-sm font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20">
-                    Criar Projeto
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button type="submit" className="bg-indigo-600 text-white rounded-xl h-[44px] px-8 text-sm font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20">
+                    Criar Projeto Completamente
                   </button>
                 </div>
               </form>
@@ -405,7 +494,7 @@ export default function Dashboard() {
                         <th className="pb-3">Cliente</th>
                         <th className="pb-3">Estágio atual</th>
                         <th className="pb-3">Data de entrega</th>
-                        <th className="pb-3 text-right pr-2">Documentos</th>
+                        <th className="pb-3 text-right pr-2">Total Links</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50 text-sm text-slate-300">
@@ -423,11 +512,8 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="py-3.5 font-medium text-slate-400">{p.dataLimite ? new Date(p.dataLimite).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'Não definida'}</td>
-                          <td className="py-3.5 text-right pr-2">
-                            <div className="flex justify-end gap-2">
-                              {p.linkProjeto && <a href={p.linkProjeto} target="_blank" rel="noreferrer" className="text-indigo-400 hover:text-indigo-300" title="Ver Link"><LinkIcon size={16} /></a>}
-                              {p.linkPRD && <a href={p.linkPRD} download className="text-emerald-400 hover:text-emerald-300" title="Baixar PRD"><FileText size={16} /></a>}
-                            </div>
+                          <td className="py-3.5 text-right pr-2 text-xs font-mono text-slate-500">
+                            {p.links.length} link(s) + {p.linkPRD ? '1 PRD' : '0 PRD'}
                           </td>
                         </tr>
                       ))}
@@ -441,14 +527,14 @@ export default function Dashboard() {
           {/* ABA 3: CLIENTES (FORMULÁRIO + TABELA COMPLETA ABAIXO) */}
           {abaAtiva === 'crm' && (
             <div className="space-y-6">
-              <form onSubmit={adicionarCliente} className="bg-[#151D30] border border-slate-800 p-6 rounded-2xl space-y-4">
+              <form onSubmit={adicionarCliente} className="bg-[#151D30] border border-slate-800 p-6 rounded-2xl space-y-4 shadow-xl">
                 <h3 className="text-base font-bold text-white mb-2">Cadastrar Novo Cliente</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-slate-400 font-medium px-1">Nome do Cliente</label>
                     <input 
                       type="text" 
-                      placeholder="Nome do Cliente" 
+                      placeholder="Nome do Cliente / Empresa" 
                       value={nomeCli} 
                       onChange={e => setNomeCli(e.target.value)}
                       className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
@@ -513,13 +599,6 @@ export default function Dashboard() {
                           </td>
                         </tr>
                       ))}
-                      {clientes.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="py-8 text-center text-xs text-slate-600">
-                            Nenhum cliente cadastrado.
-                          </td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
