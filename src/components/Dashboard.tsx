@@ -6,7 +6,7 @@ import {
   Clock, 
   LayoutDashboard,
   Link as LinkIcon,
-  Download,
+  FileText,
   Plus,
   Trash2
 } from 'lucide-react';
@@ -25,7 +25,7 @@ interface Projeto {
   dataLimite: string;
   prioridade: string;
   links: LinkDinamico[];
-  linkPRD?: string;
+  linkPRD?: string; // Guardará o PDF convertido para abrir diretamente
 }
 
 interface Cliente {
@@ -51,7 +51,7 @@ export default function Dashboard() {
         { label: 'GitHub', url: 'https://github.com' },
         { label: 'Figma', url: 'https://figma.com' }
       ],
-      linkPRD: '#'
+      linkPRD: ''
     }
   ]);
 
@@ -69,7 +69,7 @@ export default function Dashboard() {
   const [clienteProj, setClienteProj] = useState('');
   const [descProj, setDescProj] = useState('');
   const [dataProj, setDataProj] = useState('');
-  const [linkPRDInput, setLinkPRDInput] = useState('');
+  const [pdfBase64, setPdfBase64] = useState<string>(''); // Guarda o arquivo do formulário temporariamente
   
   // Lista temporária de links no formulário
   const [linksTemporarios, setLinksTemporarios] = useState<LinkDinamico[]>([]);
@@ -98,6 +98,18 @@ export default function Dashboard() {
     lancamento: { titulo: 'Lançamento / Concluído', cor: '#00E676', border: 'border-green-500', glow: 'shadow-[0_0_15px_rgba(0,230,118,0.15)]' }
   };
 
+  // Trata o Upload do PDF e converte para string utilizável para abrir na tela
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPdfBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const adicionarLinkTemporario = () => {
     if (!labelLinkAtual || !urlLinkAtual) return;
     setLinksTemporarios([...linksTemporarios, { label: labelLinkAtual, url: urlLinkAtual }]);
@@ -121,15 +133,18 @@ export default function Dashboard() {
       dataLimite: dataProj,
       prioridade: 'Média',
       links: linksTemporarios,
-      linkPRD: linkPRDInput || undefined
+      linkPRD: pdfBase64 || undefined
     };
     setProjetos([...projetos, proj]);
     setNomeProj('');
     setClienteProj('');
     setDescProj('');
     setDataProj('');
-    setLinkPRDInput('');
+    setPdfBase64('');
     setLinksTemporarios([]);
+    // Limpa o input do ficheiro fisicamente
+    const fileInput = document.getElementById('prd-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const adicionarCliente = (e: React.FormEvent) => {
@@ -160,7 +175,6 @@ export default function Dashboard() {
     }));
   };
 
-  // Função para salvar um link diretamente num card já existente
   const salvarLinkNoCardExistente = (projetoId: string) => {
     if (!novoLinkLabelCard || !novoLinkUrlCard) return;
     setProjetos(projetos.map(p => {
@@ -172,6 +186,19 @@ export default function Dashboard() {
     setNovoLinkLabelCard('');
     setNovoLinkUrlCard('');
     setProjetoIdEditandoLink(null);
+  };
+
+  // Remove o PRD de um projeto específico
+  const removerPRDDoProjeto = (projetoId: string) => {
+    setProjetos(projetos.map(p => p.id === projetoId ? { ...p, linkPRD: undefined } : p));
+  };
+
+  // Abre o PDF guardado numa aba nova
+  const abrirPDFNumaAba = (base64Data: string) => {
+    const win = window.open();
+    if (win) {
+      win.document.write(`<iframe src="${base64Data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+    }
   };
 
   return (
@@ -276,7 +303,7 @@ export default function Dashboard() {
                             <p className="text-xs text-indigo-400 font-medium">👤 {p.cliente}</p>
                             <p className="text-xs text-slate-400 leading-relaxed">{p.descricao}</p>
                             
-                            {/* AMBIENTES E LINKS SALVOS NO CARD */}
+                            {/* AMBIENTES E LINKS */}
                             <div className="space-y-1.5 pt-1">
                               <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ambientes e Links:</p>
                               <div className="flex flex-wrap gap-1.5">
@@ -285,12 +312,11 @@ export default function Dashboard() {
                                     <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1">
                                       <LinkIcon size={11} /> {link.label}
                                     </a>
-                                    <button type="button" onClick={() => deletarLinkDoProjetoSalvo(p.id, idx)} className="text-slate-500 hover:text-red-400 ml-1 pl-0.5" title="Deletar Link">✕</button>
+                                    <button type="button" onClick={() => deletarLinkDoProjetoSalvo(p.id, idx)} className="text-slate-500 hover:text-red-400 ml-1 pl-0.5">✕</button>
                                   </div>
                                 ))}
                               </div>
 
-                              {/* ADICIONAR NOVO LINK DIRETAMENTE NO CARD */}
                               {projetoIdEditandoLink === p.id ? (
                                 <div className="bg-[#0B0F19] p-2 rounded border border-slate-700 mt-2 space-y-2">
                                   <input type="text" placeholder="Nome (Ex: Vercel)" value={novoLinkLabelCard} onChange={e => setNovoLinkLabelCard(e.target.value)} className="bg-slate-800 text-xs w-full px-2 py-1 rounded border border-slate-600 text-white" />
@@ -307,11 +333,24 @@ export default function Dashboard() {
                               )}
                             </div>
 
+                            {/* LOGICA DO PRD ORIGINAL RESTAURADA COMPLETA */}
                             {p.linkPRD && (
-                              <div className="pt-1">
-                                <a href={p.linkPRD} download className="flex items-center justify-center gap-1.5 text-[11px] w-full bg-indigo-950/40 hover:bg-indigo-900/40 py-1.5 rounded text-emerald-400 font-semibold transition-colors border border-emerald-500/20">
-                                  <Download size={12} /> Baixar PRD (PDF)
-                                </a>
+                              <div className="pt-1 flex items-center gap-1.5">
+                                <button 
+                                  type="button"
+                                  onClick={() => abrirPDFNumaAba(p.linkPRD!)} 
+                                  className="flex items-center justify-center gap-1.5 text-[11px] flex-1 bg-indigo-950/40 hover:bg-indigo-900/40 py-1.5 rounded text-emerald-400 font-semibold transition-colors border border-emerald-500/20"
+                                >
+                                  <FileText size={12} /> Abrir Escopo / PRD
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removerPRDDoProjeto(p.id)}
+                                  className="p-1.5 bg-slate-800 hover:bg-red-950/40 border border-slate-700 hover:border-red-500/30 text-slate-400 hover:text-red-400 rounded transition-colors"
+                                  title="Apagar PRD"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               </div>
                             )}
 
@@ -387,9 +426,16 @@ export default function Dashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2">
+                  {/* INPUT UPLOAD DO PDF REAL LOCAL RESTAURADO */}
                   <div className="md:col-span-2 flex flex-col gap-1">
-                    <label className="text-xs text-slate-400 font-medium px-1">Link do Documento PRD (PDF)</label>
-                    <input type="text" placeholder="Cole a URL para o arquivo PDF" value={linkPRDInput} onChange={e => setLinkPRDInput(e.target.value)} className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none w-full" />
+                    <label className="text-xs text-slate-400 font-medium px-1">Fazer Upload do Documento PRD (PDF)</label>
+                    <input 
+                      id="prd-file-input"
+                      type="file" 
+                      accept="application/pdf"
+                      onChange={handleFileUpload}
+                      className="bg-[#0B0F19] border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-400 focus:outline-none file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 file:cursor-pointer w-full" 
+                    />
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs text-slate-400 font-medium px-1">Descrição do Escopo</label>
@@ -431,7 +477,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="py-3.5 font-medium text-slate-400">{p.dataLimite ? new Date(p.dataLimite).toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'S/P'}</td>
-                          <td className="py-3.5 text-right pr-2 text-xs font-mono text-slate-500">{p.links.length} link(s)</td>
+                          <td className="py-3.5 text-right pr-2 text-xs font-mono text-slate-500">{p.links.length} link(s) {p.linkPRD ? '+ 📄 PRD' : ''}</td>
                         </tr>
                       ))}
                     </tbody>
