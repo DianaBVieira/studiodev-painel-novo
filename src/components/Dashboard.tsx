@@ -71,10 +71,15 @@ export default function Dashboard() {
   const [dataProj, setDataProj] = useState('');
   const [linkPRDInput, setLinkPRDInput] = useState('');
   
-  // Lista temporária de links
+  // Lista temporária de links no formulário
   const [linksTemporarios, setLinksTemporarios] = useState<LinkDinamico[]>([]);
   const [labelLinkAtual, setLabelLinkAtual] = useState('');
   const [urlLinkAtual, setUrlLinkAtual] = useState('');
+
+  // Estado para gerenciar a adição de novos links diretamente no card já criado
+  const [projetoIdEditandoLink, setProjetoIdEditandoLink] = useState<string | null>(null);
+  const [novoLinkLabelCard, setNovoLinkLabelCard] = useState('');
+  const [novoLinkUrlCard, setNovoLinkUrlCard] = useState('');
 
   // Estados do Formulário de Clientes
   const [nomeCli, setNomeCli] = useState('');
@@ -155,6 +160,20 @@ export default function Dashboard() {
     }));
   };
 
+  // Função para salvar um link diretamente num card já existente
+  const salvarLinkNoCardExistente = (projetoId: string) => {
+    if (!novoLinkLabelCard || !novoLinkUrlCard) return;
+    setProjetos(projetos.map(p => {
+      if (p.id === projetoId) {
+        return { ...p, links: [...p.links, { label: novoLinkLabelCard, url: novoLinkUrlCard }] };
+      }
+      return p;
+    }));
+    setNovoLinkLabelCard('');
+    setNovoLinkUrlCard('');
+    setProjetoIdEditandoLink(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex antialiased w-full overflow-x-hidden">
       
@@ -162,9 +181,7 @@ export default function Dashboard() {
       <aside className={`${sidebarAberta ? 'w-64' : 'w-20'} bg-[#111827] border-r border-slate-800 transition-all duration-300 flex flex-col justify-between z-20 shrink-0`}>
         <div>
           <div className="p-5 flex items-center gap-3 border-b border-slate-800">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">
-              SD
-            </div>
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg">SD</div>
             {sidebarAberta && (
               <div>
                 <h1 className="font-bold text-lg text-white">StudioDev</h1>
@@ -174,27 +191,15 @@ export default function Dashboard() {
           </div>
 
           <nav className="p-4 space-y-2">
-            <button 
-              type="button"
-              onClick={() => setAbaAtiva('dashboard')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}
-            >
+            <button type="button" onClick={() => setAbaAtiva('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}>
               <LayoutDashboard size={20} />
               {sidebarAberta && <span>Dashboard / Kanban</span>}
             </button>
-            <button 
-              type="button"
-              onClick={() => setAbaAtiva('projetos')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'projetos' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}
-            >
+            <button type="button" onClick={() => setAbaAtiva('projetos')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'projetos' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}>
               <Folder size={20} />
               {sidebarAberta && <span>Projetos</span>}
             </button>
-            <button 
-              type="button"
-              onClick={() => setAbaAtiva('crm')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'crm' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}
-            >
+            <button type="button" onClick={() => setAbaAtiva('crm')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'crm' ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:bg-slate-800'}`}>
               <Users size={20} />
               {sidebarAberta && <span>Clientes</span>}
             </button>
@@ -202,11 +207,7 @@ export default function Dashboard() {
         </div>
 
         <div className="p-4 border-t border-slate-800">
-          <button 
-            type="button"
-            onClick={() => setSidebarAberta(!sidebarAberta)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-medium"
-          >
+          <button type="button" onClick={() => setSidebarAberta(!sidebarAberta)} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-medium">
             {sidebarAberta ? 'Recolher Menu' : '➔'}
           </button>
         </div>
@@ -215,11 +216,9 @@ export default function Dashboard() {
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#0B0F19]">
         <header className="h-20 bg-[#111827]/80 backdrop-blur border-b border-slate-800 px-8 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-xl font-bold text-white uppercase tracking-wider">
-              {abaAtiva === 'dashboard' ? 'Painel de Controle Operacional' : abaAtiva === 'projetos' ? 'Gestão de Projetos' : 'Clientes'}
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold text-white uppercase tracking-wider">
+            {abaAtiva === 'dashboard' ? 'Painel de Controle Operacional' : abaAtiva === 'projetos' ? 'Gestão de Projetos' : 'Clientes'}
+          </h2>
         </header>
 
         <div className="p-8 flex-1 overflow-y-auto space-y-8">
@@ -244,18 +243,14 @@ export default function Dashboard() {
               <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl"><DollarSign size={24} /></div>
               <div>
                 <p className="text-xs text-slate-400">Contratos</p>
-                <p className="text-xl font-bold text-white">
-                  R$ {clientes.reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0).toLocaleString('pt-BR')}
-                </p>
+                <p className="text-xl font-bold text-white">R$ {clientes.reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0).toLocaleString('pt-BR')}</p>
               </div>
             </div>
             <div className="bg-[#151D30] border border-slate-800 p-5 rounded-2xl flex items-center gap-4">
               <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl"><Clock size={24} /></div>
               <div>
                 <p className="text-xs text-slate-400">Fase Conclusão</p>
-                <p className="text-2xl font-bold text-white">
-                  {projetos.filter(p => p.status === 'homologacao' || p.status === 'lancamento').length}
-                </p>
+                <p className="text-2xl font-bold text-white">{projetos.filter(p => p.status === 'homologacao' || p.status === 'lancamento').length}</p>
               </div>
             </div>
           </div>
@@ -269,33 +264,48 @@ export default function Dashboard() {
                   const filtrados = projetos.filter(p => p.status === chave);
 
                   return (
-                    <div key={chave} className={`bg-[#111827] rounded-2xl border border-slate-800/60 p-4 w-[295px] shrink-0 transition-all duration-300 ${config.glow}`}>
+                    <div key={chave} className={`bg-[#111827] rounded-2xl border border-slate-800/60 p-4 w-[300px] shrink-0 transition-all duration-300 ${config.glow}`}>
                       <div className="p-3 rounded-xl mb-4 font-bold text-xs text-white uppercase text-center tracking-wider" style={{ backgroundColor: config.cor }}>
                         {config.titulo.split(' / ')[0]} ({filtrados.length})
                       </div>
 
                       <div className="space-y-4 min-h-[350px]">
                         {filtrados.map(p => (
-                          <div key={p.id} className={`bg-[#151D30] border-l-4 ${config.border} p-4 rounded-xl space-y-3 shadow-md hover:scale-[1.02] transition-transform`}>
+                          <div key={p.id} className={`bg-[#151D30] border-l-4 ${config.border} p-4 rounded-xl space-y-3 shadow-md hover:scale-[1.01] transition-transform`}>
                             <h4 className="font-bold text-sm text-white leading-tight">{p.nome}</h4>
                             <p className="text-xs text-indigo-400 font-medium">👤 {p.cliente}</p>
                             <p className="text-xs text-slate-400 leading-relaxed">{p.descricao}</p>
                             
-                            {p.links && p.links.length > 0 && (
-                              <div className="space-y-1.5 pt-1">
-                                <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ambientes e Links:</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {p.links.map((link, idx) => (
-                                    <div key={idx} className="flex items-center gap-1 bg-slate-800/90 hover:bg-slate-700/90 px-2 py-1 rounded text-[11px] transition-colors text-indigo-400 font-medium">
-                                      <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1">
-                                        <LinkIcon size={11} /> {link.label}
-                                      </a>
-                                      <button type="button" onClick={() => deletarLinkDoProjetoSalvo(p.id, idx)} className="text-slate-500 hover:text-red-400 ml-1 pl-0.5">✕</button>
-                                    </div>
-                                  ))}
-                                </div>
+                            {/* AMBIENTES E LINKS SALVOS NO CARD */}
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Ambientes e Links:</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {p.links.map((link, idx) => (
+                                  <div key={idx} className="flex items-center gap-1 bg-slate-800/90 hover:bg-slate-700/90 px-2 py-1 rounded text-[11px] transition-colors text-indigo-400 font-medium">
+                                    <a href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-1">
+                                      <LinkIcon size={11} /> {link.label}
+                                    </a>
+                                    <button type="button" onClick={() => deletarLinkDoProjetoSalvo(p.id, idx)} className="text-slate-500 hover:text-red-400 ml-1 pl-0.5" title="Deletar Link">✕</button>
+                                  </div>
+                                ))}
                               </div>
-                            )}
+
+                              {/* ADICIONAR NOVO LINK DIRETAMENTE NO CARD */}
+                              {projetoIdEditandoLink === p.id ? (
+                                <div className="bg-[#0B0F19] p-2 rounded border border-slate-700 mt-2 space-y-2">
+                                  <input type="text" placeholder="Nome (Ex: Vercel)" value={novoLinkLabelCard} onChange={e => setNovoLinkLabelCard(e.target.value)} className="bg-slate-800 text-xs w-full px-2 py-1 rounded border border-slate-600 text-white" />
+                                  <input type="url" placeholder="https://..." value={novoLinkUrlCard} onChange={e => setNovoLinkUrlCard(e.target.value)} className="bg-slate-800 text-xs w-full px-2 py-1 rounded border border-slate-600 text-white" />
+                                  <div className="flex gap-1.5 justify-end">
+                                    <button type="button" onClick={() => setProjetoIdEditandoLink(null)} className="text-[10px] bg-slate-700 px-2 py-1 rounded">Cancelar</button>
+                                    <button type="button" onClick={() => salvarLinkNoCardExistente(p.id)} className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded font-bold">Salvar</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button type="button" onClick={() => setProjetoIdEditandoLink(p.id)} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold block pt-1">
+                                  + Incluir link neste card
+                                </button>
+                              )}
+                            </div>
 
                             {p.linkPRD && (
                               <div className="pt-1">
@@ -358,7 +368,7 @@ export default function Dashboard() {
                 <div className="bg-[#0B0F19]/50 border border-slate-800 p-4 rounded-xl space-y-3">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Gerenciador de Ambientes e Links</label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                    <input type="text" placeholder="Nome do link (Ex: Figma, GitHub)" value={labelLinkAtual} onChange={e => setLabelLinkAtual(e.target.value)} className="bg-[#0B0F19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
+                    <input type="text" placeholder="Nome do link (Ex: Figma)" value={labelLinkAtual} onChange={e => setLabelLinkAtual(e.target.value)} className="bg-[#0B0F19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
                     <input type="url" placeholder="https://link.com" value={urlLinkAtual} onChange={e => setUrlLinkAtual(e.target.value)} className="bg-[#0B0F19] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white" />
                     <button type="button" onClick={adicionarLinkTemporario} className="bg-slate-800 text-indigo-400 border border-slate-700 font-semibold rounded-lg h-[34px] text-xs flex items-center justify-center gap-1 hover:bg-slate-700 transition-colors">
                       <Plus size={14} /> Incluir Link
